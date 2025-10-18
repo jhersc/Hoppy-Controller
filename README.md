@@ -88,28 +88,29 @@ Dedicated to managing long-range wireless data transmission using the LoRa radio
 ## Communication Flow
 
 ```
-          LoRa Network
-                │
-                ▼
-     ┌───────────────────────┐
-     │  ESP32 #2 (LoRa MCU)  │
-     │  - Handles LoRa TX/RX │
-     │  - Sends received     │
-     │    packets via UART   │
-     └──────────┬────────────┘
-                │ UART (Serial)
-                ▼
-     ┌───────────────────────────────┐
-     │  ESP32 #1 (Input Controller)  │
-     │  - Receives packets via UART  │
-     │  - Parses and decides action  │ 
-     │  - Displays info on TFT       │
-     │  - Accepts user input (keypad)│
-     │  - Sends responses/commands   │
-     └──────────┬────────────────────┘
-                │
-                ▼
-            User Interface
+                                                  LoRa Network
+                                                        │
+                                                        ▼
+                                             ┌───────────────────────┐
+                                             │  ESP32 #2 (LoRa MCU)  │
+                                             │  - Handles LoRa TX/RX │
+                                             │  - Sends received     │
+                                             │    packets via UART   │
+                                             └──────────┬────────────┘
+                                                        │ UART (Serial)
+                                                        ▼
+                                             ┌───────────────────────────────┐
+                                             │  ESP32 #1 (Input Controller)  │
+                                             │  - Receives packets via UART  │
+                                             │  - Parses and decides action  │ 
+                                             │  - Displays info on TFT       │
+                                             │  - Accepts user input (keypad)│
+                                             │  - Sends responses/commands   │
+                                             └──────────┬────────────────────┘
+                                                        │
+                                                        ▼
+                                                    User Interface
+
 ```
 
 ---
