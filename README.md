@@ -121,7 +121,6 @@ Dedicated to managing long-range wireless data transmission using the LoRa radio
 * Implemented keypad input handling, TFT display control, and data persistence.
 * Developed a scalable and maintainable code structure.
 * Prepared the foundation for serial-based communication between both microcontrollers.
-
 ---
 
 ## Next Development Phase (Phase 2)
@@ -132,6 +131,38 @@ Dedicated to managing long-range wireless data transmission using the LoRa radio
 * Implement a structured serial data exchange protocol between the main and LoRa modules.
 * Expand the TFT interface with additional menus and live data views.
 * Add error handling, data validation, and communication acknowledgment.
+---
+| Function                     | GPIO      | Description                           |
+| ---------------------------- | --------- | ------------------------------------- |
+| **TFT Display**              |           |                                       |
+| MISO                         | 12        | SPI MISO                              |
+| MOSI                         | 13        | SPI MOSI                              |
+| SCLK                         | 14        | SPI Clock                             |
+| CS                           | 15        | Chip Select                           |
+| DC                           | 2         | Data/Command                          |
+| RST                          | EN        | Connected to board reset (enable) pin |
+| **4×5 Keypad**               |           |                                       |
+| Row 1                        | 25        | Output                                |
+| Row 2                        | 26        | Output                                |
+| Row 3                        | 27        | Output                                |
+| Row 4                        | 18        | Output                                |
+| Row 5                        | 19        | Output                                |
+| Col 1                        | 4         | Input                                 |
+| Col 2                        | 16        | Input                                 |
+| Col 3                        | 17        | Input                                 |
+| Col 4                        | 32        | Input                                 |
+| **RTC Module (I2C)**         |           |                                       |
+| SDA                          | 21        | I2C Data Line                         |
+| SCL                          | 22        | I2C Clock Line                        |
+| VCC                          | 3.3V      | Power                                 |
+| GND                          | GND       | Ground                                |
+| **NEO-6M GPS Module (UART)** |           |                                       |
+| RX                           | 33        | GPS TX → ESP32 RX (Serial2)           |
+| TX                           | 34        | GPS RX ← ESP32 TX (Serial2)           |
+| VCC                          | 3.3V / 5V | Power (check module spec)             |
+| GND                          | GND       | Ground                                |
+
+  
 
 ---
 ## License and Usage
