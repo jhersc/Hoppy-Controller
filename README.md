@@ -92,7 +92,7 @@ Dedicated to managing long-range wireless data transmission using the LoRa radio
                 │
                 ▼
      ┌───────────────────────┐
-     │  ESP32 #2 (LoRa MCU) │
+     │  ESP32 #2 (LoRa MCU)  │
      │  - Handles LoRa TX/RX │
      │  - Sends received     │
      │    packets via UART   │
@@ -133,3 +133,11 @@ Dedicated to managing long-range wireless data transmission using the LoRa radio
 * Expand the TFT interface with additional menus and live data views.
 * Add error handling, data validation, and communication acknowledgment.
 
+---
+## License and Usage
+This repository is made publicly visible for academic purposes only.
+Reproduction, modification, or commercial use of any part of this project
+is strictly prohibited without written permission from the author.
+
+© 2025 Jherson R. Clorado. All rights reserved.
+Unauthorized use, copying, modification, or distribution is prohibited.
