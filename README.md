@@ -188,10 +188,17 @@ build_flags =
 
 * Integrate with RTC module
 * Integrate with GPS module
-* Integrate both ESP32 units for synchronized operation
-* Implement a structured serial data exchange protocol between the main and LoRa modules
-* Expand the TFT interface with additional menus and live data views
-* Add error handling, data validation, and communication acknowledgment
+* Integrate both ESP32 units for synchronized operation.
+* Implement a structured serial data exchange protocol between the main and LoRa modules.
+* Expand the TFT interface with additional menus and live data views.
+* Add error handling, data validation, and communication acknowledgment.
+
+### Touchscreen Integration (Planned)
+* Touchscreen functionality is currently on hold due to wiring constraints.
+* Future integration will involve:
+  * Assigning available GPIOs for T_CS, T_IRQ, T_CLK, T_DIN.
+  * Adding touch-specific SPI build flags in `platformio.ini`.
+  * Implementing touchscreen input in the `TFTHandler` module.
 
 ---
 
