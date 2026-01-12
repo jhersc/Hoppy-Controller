@@ -41,41 +41,29 @@ struct User {
         : ID(id), username(uname), status(stat) {}
 };
 // ----- Message -----
-// Represents a chat message, now fully aligned with LoRa ParsedPacket
+// Represents a chat message with minimal fields
 struct Message {
-    String ID;             // Unique message ID
-    String from_user_id;   // Sender user ID
-    String channel_id;     // Target channel ID
-    String content;        // Message content
-    unsigned int message_index; // Index in channel
-    String timestamp_hex;  // Hexadecimal timestamp (millis() captured at creation)
-    unsigned int length;   // Length of message
-    bool is_channel;       // True if sent to a group channel, false if private
-    String channel_name;   // Optional: for group readability in logs or UI
+    String channel_id;
+    String message_id;
+    String sender_id;
+    String message;
+    String time_stamp;
 
     // Default constructor
     Message()
-        : ID(""), from_user_id(""), channel_id(""), content(""),
-          message_index(0), timestamp_hex(""), length(0),
-          is_channel(false), channel_name("") {}
+        : channel_id(""), message_id(""), sender_id(""), message(""), time_stamp("") {}
 
-    // Parameterized constructor (auto-assigns timestamp + length)
-    Message(const String& id,
-            const String& from,
-            const String& ch,
+    // Parameterized constructor (auto-assigns timestamp if not provided)
+    Message(const String& ch_id,
+            const String& msg_id,
+            const String& sender,
             const String& msg,
-            bool isCh = true,
-            const String& chName = "",
-            unsigned int idx = 0)
-        : ID(id),
-          from_user_id(from),
-          channel_id(ch),
-          content(msg),
-          message_index(idx),
-          timestamp_hex(String(millis(), HEX)),
-          length(msg.length()),
-          is_channel(isCh),
-          channel_name(chName) {}
+            const String& ts = "")
+        : channel_id(ch_id),
+          message_id(msg_id),
+          sender_id(sender),
+          message(msg),
+          time_stamp(ts.length() ? ts : String(millis(), HEX)) {}
 };
 
 // ----- Channel -----

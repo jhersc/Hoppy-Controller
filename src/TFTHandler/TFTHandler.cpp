@@ -303,10 +303,9 @@ void TFTHandler::drawChatMessages(Channel* channel) {
     for (Message* msg : channel->channel_messages) {
         if (!msg) continue;
         if (y + lineHeight > topY && y < bottomY) {
-            // User* sender = findUserById(msg->from_user_id);
-            // String senderName = sender ? sender->username : "Unknown";
-            String senderName = msg->from_user_id;
-            String line = senderName + ": " + msg->content;
+            User* sender = findUserById(msg->sender_id);
+            String senderName = sender ? sender->username : msg->sender_id;
+            String line = senderName + ": " + msg->message;
             tft.drawString(line, 5, y, 2);
         }
         y += lineHeight;

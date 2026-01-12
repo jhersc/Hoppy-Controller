@@ -9,27 +9,23 @@ TFTHandler TFT_HANDLER;
 KeypadHandler CONTROLLER(&TFT_HANDLER);
 
 // ================== PARSED PACKET STRUCT ==================
-struct ParsedPacket {
-    String timestamp_hex;
-    String channel_name;
+struct Packet {
     String channel_id;
-    String sender;
     String message_id;
-    int length;
-    bool is_channel;
+    String sender_id;
     String message;
+    String time_stamp;
     bool valid;
 };
-
 // ================== PARSER ==================
-ParsedPacket parsePacket(String packet) {
-    ParsedPacket result;
+Packet parsePacket(String packet) {
+    Packet result;
     result.valid = false;
 
-    String parts[8];
+    String parts[5];
     int index = 0;
 
-    while (packet.length() > 0 && index < 8) {
+    while (packet.length() > 0 && index < 5) {
         int sepIndex = packet.indexOf("||");
         if (sepIndex == -1) {
             parts[index++] = packet;
@@ -39,18 +35,14 @@ ParsedPacket parsePacket(String packet) {
             packet = packet.substring(sepIndex + 2);
         }
     }
+    if (index < 5) return result;
 
-    if (index < 8) return result; // invalid if not all 8 parts
-
-    result.timestamp_hex = parts[0];
-    result.channel_name   = parts[1];
-    result.channel_id     = parts[2];
-    result.sender         = parts[3];
-    result.message_id     = parts[4];
-    result.length         = parts[5].toInt();
-    result.is_channel     = (parts[6].toInt() == 1);
-    result.message        = parts[7];
-    result.valid          = true;
+    result.channel_id = parts[0];
+    result.message_id = parts[1];
+    result.sender_id  = parts[2];
+    result.message    = parts[3];
+    result.time_stamp = parts[4];
+    result.valid      = true;
 
     return result;
 }
@@ -68,13 +60,10 @@ static Message* createAndRegisterMessage(Channel* channel, const String& senderI
     String id = generateMessageId();
     unsigned int idx = channel->_message_count;
     Message* m = new Message(
+        channel->ID,
         id,
         senderId,
-        channel->ID,
-        content,
-        isChannel,
-        channel->name,
-        idx
+        content
     );
     channel->addMessage(m);
     all_messages.push_back(m);
@@ -152,7 +141,7 @@ void listenSerialMessages() {
         line.startsWith("[INFO") || line.startsWith("[FATAL")) return;
 
     // Parse incoming packet
-    ParsedPacket pkt = parsePacket(line);
+    Packet pkt = parsePacket(line);
     if (!pkt.valid) return;
 
     // Find or forward channel
@@ -164,8 +153,8 @@ void listenSerialMessages() {
     }
 
     // Ensure sender exists
-    if (!findUserById(pkt.sender)) {
-        User* u = new User(pkt.sender, pkt.sender);
+    if (!findUserById(pkt.sender_id)) {
+        User* u = new User(pkt.sender_id, pkt.sender_id);
         all_users.push_back(u);
         PreferencesHandler::saveUsers(all_users);
     }
@@ -173,33 +162,26 @@ void listenSerialMessages() {
     // Avoid duplicates
     for (Message* m : ch->channel_messages) {
         if (!m) continue;
-        if (m->ID == pkt.message_id) return;
+        if (m->message_id == pkt.message_id) return;
     }
 
-    // Create and register message (new full-field format)
+    // Create and register message (minimal fields)
     Message* msg = new Message(
-        pkt.message_id,
-        pkt.sender,
         pkt.channel_id,
+        pkt.message_id,
+        pkt.sender_id,
         pkt.message,
-        pkt.is_channel,
-        pkt.channel_name,
-        ch->_message_count
+        pkt.time_stamp
     );
-    msg->timestamp_hex = pkt.timestamp_hex;
-    msg->length = pkt.length;
 
     ch->addMessage(msg);
     all_messages.push_back(msg);
 
     // Echo in unified format
-    String out = pkt.timestamp_hex + "||" +
-                 pkt.channel_name + "||" +
+    String out = "DATA||" +
                  pkt.channel_id + "||" +
-                 pkt.sender + "||" +
                  pkt.message_id + "||" +
-                 String(pkt.length) + "||" +
-                 String(pkt.is_channel ? 1 : 0) + "||" +
+                 pkt.sender_id + "||" +
                  pkt.message;
     Serial.println(out);
 

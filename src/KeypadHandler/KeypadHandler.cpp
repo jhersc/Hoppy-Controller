@@ -265,23 +265,19 @@ void KeypadHandler::handle_ChatScreen(char key) {
         instance->target_channel) {
 
         String msg_id = generateMessageId();
+        String ts = String(millis(), HEX);
         Message* newMsg = new Message(
+            instance->target_channel->ID,
             msg_id,
             local_user->ID,
-            instance->target_channel->ID,
             instance->text_input,
-            true,
-            instance->target_channel->name,
-            instance->target_channel->_message_count
+            ts
         );
-
-        newMsg->timestamp_hex = String(millis(), HEX);
-        newMsg->length = instance->text_input.length();
 
         instance->target_channel->addMessage(newMsg);
         all_messages.push_back(newMsg);
 
-        // Build 8-field format
+        // Build outgoing packet
         String packet = KeypadHandler::formatOutgoingMessage(newMsg);
         Serial.println(packet);
 
@@ -300,20 +296,15 @@ void KeypadHandler::handle_ChatScreen(char key) {
 
 // ============================================================
 // Format outgoing message — NEW FORMAT (8 fields)
-// timestamp_hex || channel_name || channel_id || sender || message_id || length || is_channel || message
+// channel_id || message_id || sender_id || message || time_stamp
 // ============================================================
 String KeypadHandler::formatOutgoingMessage(Message* msg) {
     if (!msg || !local_user) return "";
-
     String packet =
-        msg->timestamp_hex + "||" +
-        msg->channel_name + "||" +
         msg->channel_id + "||" +
-        msg->from_user_id + "||" +
-        msg->ID + "||" +
-        String(msg->length) + "||" +
-        String(msg->is_channel ? 1 : 0) + "||" +
-        msg->content;
+        msg->message_id + "||" +
+        msg->sender_id +  "||" +
+        msg->message;
 
     return packet;
 }
