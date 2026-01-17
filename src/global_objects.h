@@ -4,6 +4,7 @@
 
 #include <Arduino.h>
 #include <vector>
+#include "DebugMacros.h"
 
 // ================== SCREEN CONSTANTS =====================
 // Define identifiers for each TFT screen

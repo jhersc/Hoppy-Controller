@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "DebugMacros.h"
 #include "KeypadHandler/KeypadHandler.h"
 #include "TFTHandler/TFTHandler.h"
 #include "global_objects.h"
@@ -85,14 +86,14 @@ void restorePersistentData() {
         all_users.push_back(local_user);
     }
 
-    Serial.println("[INFO] Restored users and channels from NVS");
+    INFO("Restored users and channels from NVS");
 }
 
 void resetPreferences() {
     PreferencesHandler::begin();
     PreferencesHandler::clearAll();
     PreferencesHandler::end();
-    Serial.println("[INFO] Cleared all preferences!");
+    INFO("Cleared all preferences!");
 
     PreferencesHandler::begin();
     restorePersistentData();
@@ -125,7 +126,7 @@ void setup() {
     TFT_HANDLER.begin();
     CONTROLLER.begin();
 
-    Serial.println("[D] System initialized. Ready for communication.");
+    DBG("System initialized. Ready for communication.");
 }
 
 // ================== SERIAL LISTENER ==================
@@ -136,9 +137,11 @@ void listenSerialMessages() {
     line.trim();
     if (line.isEmpty()) return;
 
-    // Ignore debug/system lines
-    if (line.startsWith("[D]") || line.startsWith("[LoRa") ||
-        line.startsWith("[INFO") || line.startsWith("[FATAL")) return;
+    // Ignore debug/system lines from both this MCU and remote MCUs
+    if (line.startsWith("[DBG]") || line.startsWith("[INFO]") ||
+        line.startsWith("[WARN]") || line.startsWith("[ERR]") ||
+        line.startsWith("[D]") || line.startsWith("[LoRa") ||
+        line.startsWith("[FATAL")) return;
 
     // Parse incoming packet
     Packet pkt = parsePacket(line);
@@ -147,7 +150,7 @@ void listenSerialMessages() {
     // Find or forward channel
     Channel* ch = findChannelById(pkt.channel_id);
     if (!ch) {
-        Serial.println("[HOP] Forwarding unknown channel packet...");
+        WARN("Forwarding unknown channel packet...");
         Serial.println(line);
         return;
     }

@@ -6,6 +6,7 @@
 #include <vector>
 #include <Preferences.h>
 #include "global_objects.h"
+#include "DebugMacros.h"
 
 
 // ================== PreferencesHandler ===================

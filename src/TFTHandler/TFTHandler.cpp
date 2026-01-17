@@ -1,4 +1,5 @@
 #include "TFTHandler.h"
+#include "../DebugMacros.h"
 
 int TFTHandler::chatScrollOffset = 0;
 int TFTHandler::messagesScrollOffset = 0;

@@ -1,4 +1,5 @@
 #include "global_objects.h"
+#include "DebugMacros.h"
 
 // ===== Actual storage definitions =====
 bool EDIT_MODE = false;

@@ -1,4 +1,5 @@
 #include "KeypadHandler.h"
+#include "../DebugMacros.h"
 
 #define CHAT_FULL     0
 #define CHAT_MESSAGES 1
