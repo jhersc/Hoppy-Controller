@@ -266,7 +266,7 @@ void KeypadHandler::handle_ChatScreen(char key) {
         instance->target_channel) {
 
         String msg_id = generateMessageId();
-        String ts = String(millis(), HEX);
+        String ts = getTime();
         Message* newMsg = new Message(
             instance->target_channel->ID,
             msg_id,
@@ -305,7 +305,8 @@ String KeypadHandler::formatOutgoingMessage(Message* msg) {
         msg->channel_id + "||" +
         msg->message_id + "||" +
         msg->sender_id +  "||" +
-        msg->message;
+        msg->message + "||" +
+        msg->time_stamp;
 
     return packet;
 }

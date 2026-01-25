@@ -25,6 +25,8 @@ public:
     // Draw the messages / channel list screen
     void draw_MessagesScreen();
     void drawMessagesHeader();
+    void drawHeaderTime();
+    void updateMessagesHeaderTime();
     void drawMessagesFooter();
     int getMessagesIncrement();
     void draw_AddLobbyScreen(const String& lobbyDraft);
@@ -53,6 +55,9 @@ public:
 
     // Draw the current draft message at the bottom
     void drawChatDraft(const String& draft);
+    
+    // Calculate total height of all messages in a channel (accounts for variable heights)
+    int calculateTotalMessagesHeight(Channel* channel);
 
     // ================== SCROLLING ==================
     // Scroll chat messages up
@@ -91,4 +96,7 @@ private:
 
     // Current active screen
     byte current_screen;
+    
+    // Last time the header time was updated (millis)
+    unsigned long lastTimeUpdate;
 };

@@ -71,7 +71,7 @@ private:
         { '1','2','3','D' },
         { '4','5','6','E' },
         { '7','8','9','F' },
-        { '0','.','G','H' }  // last row: 0, dot, G, send
+        { '.','0','G','H' }  // last row: 0, dot, G, send
     };
 
     // Input state variables

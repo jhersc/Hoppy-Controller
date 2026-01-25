@@ -102,6 +102,9 @@ void resetPreferences() {
 // ================== SETUP ==================
 void setup() {
     Serial.begin(115200);
+    while (!Serial){}
+    RTC_setup();
+    Serial.println("RESET"); // Request reset of connected MCUs
     PreferencesHandler::begin();
     restorePersistentData();
 
@@ -127,6 +130,7 @@ void setup() {
     CONTROLLER.begin();
 
     DBG("System initialized. Ready for communication.");
+    Serial.println("READY");
 }
 
 // ================== SERIAL LISTENER ==================
@@ -143,6 +147,44 @@ void listenSerialMessages() {
         line.startsWith("[D]") || line.startsWith("[LoRa") ||
         line.startsWith("[FATAL")) return;
 
+    // Handle latency update packets: format `LAT||<message_id>||<rssi>||<snr>||<latency_ms>`
+    if (line.startsWith("LAT||")) {
+        String parts[4];
+        int idx = 0;
+        String rest = line.substring(5); // skip "LAT||"
+        while (rest.length() > 0 && idx < 4) {
+            int sep = rest.indexOf("||");
+            if (sep == -1) {
+                parts[idx++] = rest;
+                break;
+            } else {
+                parts[idx++] = rest.substring(0, sep);
+                rest = rest.substring(sep + 2);
+            }
+        }
+        if (idx >= 4) {
+            String messageId = parts[0];
+            int rssi = parts[1].toInt();
+            int snr = parts[2].toInt();
+            unsigned long lat = (unsigned long) parts[3].toInt();
+            bool updated = updateMessageLatency(messageId, rssi, snr, lat);
+            if (updated) {
+                // find message and its channel to redraw
+                Message* m = findMessageById(messageId);
+                if (m) {
+                    Channel* ch = findChannelById(m->channel_id);
+                    if (ch) {
+                        // redraw chat if currently viewing that channel
+                        if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT && CONTROLLER.target_channel == ch) {
+                            TFT_HANDLER.drawChatMessages(ch);
+                        }
+                    }
+                }
+            }
+        }
+        return;
+    }
+
     // Parse incoming packet
     Packet pkt = parsePacket(line);
     if (!pkt.valid) return;
@@ -151,7 +193,7 @@ void listenSerialMessages() {
     Channel* ch = findChannelById(pkt.channel_id);
     if (!ch) {
         WARN("Forwarding unknown channel packet...");
-        Serial.println(line);
+        DBG(line);
         return;
     }
 
@@ -186,7 +228,7 @@ void listenSerialMessages() {
                  pkt.message_id + "||" +
                  pkt.sender_id + "||" +
                  pkt.message;
-    Serial.println(out);
+    INFO(out);
 
     // Refresh chat screen if active
     if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT &&
@@ -200,4 +242,9 @@ void listenSerialMessages() {
 void loop() {
     CONTROLLER.update();
     listenSerialMessages();
+    // Periodically refresh header time when viewing Messages or Chat
+    byte cur = TFT_HANDLER.get_currentScreen();
+    if (cur == SCREEN_MESSAGES || cur == SCREEN_CHAT) {
+        TFT_HANDLER.updateMessagesHeaderTime();
+    }
 }

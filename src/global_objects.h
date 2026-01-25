@@ -5,6 +5,8 @@
 #include <Arduino.h>
 #include <vector>
 #include "DebugMacros.h"
+#include "RTClib.h"
+
 
 // ================== SCREEN CONSTANTS =====================
 // Define identifiers for each TFT screen
@@ -49,22 +51,34 @@ struct Message {
     String sender_id;
     String message;
     String time_stamp;
+    int rssi;           // Received Signal Strength Indicator (dBm)
+    int snr;            // Signal-to-Noise Ratio (dB)
+    unsigned long latency;  // Message latency (milliseconds)
+    bool latency_set;   // Flag to track if latency has been set
 
     // Default constructor
     Message()
-        : channel_id(""), message_id(""), sender_id(""), message(""), time_stamp("") {}
+        : channel_id(""), message_id(""), sender_id(""), message(""), time_stamp(""), 
+          rssi(0), snr(0), latency(0), latency_set(false) {}
 
     // Parameterized constructor (auto-assigns timestamp if not provided)
     Message(const String& ch_id,
             const String& msg_id,
             const String& sender,
             const String& msg,
-            const String& ts = "")
+            const String& ts = "",
+            int r = 0,
+            int s = 0,
+            unsigned long lat = 0)
         : channel_id(ch_id),
           message_id(msg_id),
           sender_id(sender),
           message(msg),
-          time_stamp(ts.length() ? ts : String(millis(), HEX)) {}
+          time_stamp(ts.length() ? ts : String(millis(), HEX)),
+          rssi(r),
+          snr(s),
+          latency(lat),
+          latency_set(lat > 0) {}
 };
 
 // ----- Channel -----
@@ -101,13 +115,25 @@ extern std::vector<Message*> all_messages;
 // Current local user
 extern User* local_user;
 
+// ================== RTC OBJECT =============================
+// Real-time clock (DS3231)
+extern RTC_DS3231 rtc;
+
 // ================== HELPER FUNCTIONS =====================
-// Find user or channel by ID
+// Find user, channel, or message by ID
 User* findUserById(const String& id);
 Channel* findChannelById(const String& id);
+Message* findMessageById(const String& id);
 
 // Generate a unique message ID
 String generateMessageId();
+
+// Update message latency (only updates if not already set)
+bool updateMessageLatency(const String& messageId, int rssi, int snr, unsigned long latency);
+
+// RTC functions
+void RTC_setup();
+String getTime();
 
 
 
