@@ -1,0 +1,14 @@
+- Packet merging of Struct Packet and Class Message
+
+    String channel_id;
+    String message_id;
+    String sender_id;
+    String message;
+    String date_and_time;
+    String time_stamp;
+    String RSSI;
+    String SNR;
+    String latency;
+    bool valid;
+
+    

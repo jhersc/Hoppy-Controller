@@ -5,71 +5,15 @@
 #include "global_objects.h"
 #include "PreferencesHandler.h"
 
+
+// PROGRAM FLOW
+// serial data -> serial read ->
+
 // ================== CORE HANDLERS ==================
 TFTHandler TFT_HANDLER;
 KeypadHandler CONTROLLER(&TFT_HANDLER);
 
-// ================== PARSED PACKET STRUCT ==================
-struct Packet {
-    String channel_id;
-    String message_id;
-    String sender_id;
-    String message;
-    String time_stamp;
-    bool valid;
-};
-// ================== PARSER ==================
-Packet parsePacket(String packet) {
-    Packet result;
-    result.valid = false;
 
-    String parts[5];
-    int index = 0;
-
-    while (packet.length() > 0 && index < 5) {
-        int sepIndex = packet.indexOf("||");
-        if (sepIndex == -1) {
-            parts[index++] = packet;
-            break;
-        } else {
-            parts[index++] = packet.substring(0, sepIndex);
-            packet = packet.substring(sepIndex + 2);
-        }
-    }
-    if (index < 5) return result;
-
-    result.channel_id = parts[0];
-    result.message_id = parts[1];
-    result.sender_id  = parts[2];
-    result.message    = parts[3];
-    result.time_stamp = parts[4];
-    result.valid      = true;
-
-    return result;
-}
-
-// ================== HELPERS ==================
-static bool isDigitsOnly(const String &s) {
-    if (s.length() == 0) return false;
-    for (size_t i = 0; i < s.length(); ++i) {
-        if (!isDigit(s[i])) return false;
-    }
-    return true;
-}
-
-static Message* createAndRegisterMessage(Channel* channel, const String& senderId, const String& content, bool isChannel = true) {
-    String id = generateMessageId();
-    unsigned int idx = channel->_message_count;
-    Message* m = new Message(
-        channel->ID,
-        id,
-        senderId,
-        content
-    );
-    channel->addMessage(m);
-    all_messages.push_back(m);
-    return m;
-}
 
 // ================== PERSISTENCE ==================
 void restorePersistentData() {
@@ -136,9 +80,10 @@ void setup() {
 // ================== SERIAL LISTENER ==================
 void listenSerialMessages() {
     if (!Serial.available()) return;
-
+    
     String line = Serial.readStringUntil('\n');
     line.trim();
+
     if (line.isEmpty()) return;
 
     // Ignore debug/system lines from both this MCU and remote MCUs
@@ -146,95 +91,107 @@ void listenSerialMessages() {
         line.startsWith("[WARN]") || line.startsWith("[ERR]") ||
         line.startsWith("[D]") || line.startsWith("[LoRa") ||
         line.startsWith("[FATAL")) return;
+    
+    
+    
+    if (line.startsWith("msg||")) {
+        line = line.substring(5);
 
-    // Handle latency update packets: format `LAT||<message_id>||<rssi>||<snr>||<latency_ms>`
-    if (line.startsWith("LAT||")) {
-        String parts[4];
-        int idx = 0;
-        String rest = line.substring(5); // skip "LAT||"
-        while (rest.length() > 0 && idx < 4) {
-            int sep = rest.indexOf("||");
-            if (sep == -1) {
-                parts[idx++] = rest;
-                break;
-            } else {
-                parts[idx++] = rest.substring(0, sep);
-                rest = rest.substring(sep + 2);
-            }
+        // Parse message fields
+        Packet pkt;
+        parseRawPacket(line, pkt);
+        if (!pkt.valid) return;
+        
+        // Check if channel exists, if not create it (handles new channels on the fly)
+        Channel* ch = findChannelById(pkt.channel_id);
+        if (!ch) {
+            WARN("New channel ID " + pkt.channel_id + " creating channel object...");
+            ch = new Channel(CHAT_GROUP, pkt.channel_name, pkt.channel_id);
+            all_channels.push_back(ch);
+            DBG(line);
         }
-        if (idx >= 4) {
-            String messageId = parts[0];
-            int rssi = parts[1].toInt();
-            int snr = parts[2].toInt();
-            unsigned long lat = (unsigned long) parts[3].toInt();
-            bool updated = updateMessageLatency(messageId, rssi, snr, lat);
-            if (updated) {
+        // Check if sender exists, if not create it (handles new users on the fly)
+        User* sender = findUserById(pkt.sender_id);
+        if (!sender) {
+            sender = new User(pkt.sender_id, pkt.sender_name);
+            all_users.push_back(sender);
+            PreferencesHandler::saveUsers(all_users);
+        }
+        // Create message and add to channel
+        Message* msg = new Message(
+            pkt.date_and_time,
+            pkt.message_id,
+            pkt.sender_id,
+            pkt.channel_id,
+            pkt.sender_name,
+            pkt.channel_name,
+            pkt.content,
+            pkt.rssi,
+            pkt.snr,
+            pkt.latency
+        );
+        ch->addMessage(msg);
+        all_messages.push_back(msg);
+        
+            // Echo in unified format
+        String out = "msg||" +
+                pkt.date_and_time + "||" +
+                pkt.message_id + "||" +
+                pkt.sender_id + "||" +
+                pkt.channel_id + "||" +
+                pkt.sender_name + "||" +
+                pkt.channel_name + "||" +
+                pkt.content + "||" +
+                pkt.rssi + "||" +
+                pkt.snr + "||" +
+                pkt.latency;
+        INFO(out);
+        // Refresh chat screen if active
+        if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT &&
+            CONTROLLER.target_channel == ch) {
+            TFT_HANDLER.drawChatMessages(ch);
+            TFT_HANDLER.scrollToBottom(ch);
+        }
+    }
+
+    if (line.startsWith("ack||")) {
+        String messageId = line.substring(5);
+        markAsSeen(messageId);
+        Packet pkt;
+        parseRawPacket(line, pkt);
+        if (!pkt.valid) return;
+
+        // Get the message object
+        Message* msg = findMessageById(messageId);
+        if (!msg) {
+            WARN("Received ACK for unknown message ID: " + messageId);
+            return;
+        }
+        INFO("FOUND MESSAGE OBJECT:" + msg->channel_id);
+        // Update latency if provided
+        if (pkt.latency > 0) {
+            if(updateMessageLatency(*msg, pkt.rssi, pkt.snr, pkt.latency)) {
+                INFO("ACK latency updated for message ID: " + messageId);
+                // Refresh chat screen if active
                 // find message and its channel to redraw
-                Message* m = findMessageById(messageId);
-                if (m) {
-                    Channel* ch = findChannelById(m->channel_id);
+                INFO("LATENCY UPDATED!");
+                
+                if (msg) {
+                    Channel* ch = findChannelById(msg->channel_id);
                     if (ch) {
+                        INFO("FOUND CHANNEL OBJECT: " + ch->id);
                         // redraw chat if currently viewing that channel
                         if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT && CONTROLLER.target_channel == ch) {
+                            INFO("REDRAWING");
                             TFT_HANDLER.drawChatMessages(ch);
+                            INFO("REDRAWN");
                         }
                     }
                 }
             }
         }
+
         return;
-    }
-
-    // Parse incoming packet
-    Packet pkt = parsePacket(line);
-    if (!pkt.valid) return;
-
-    // Find or forward channel
-    Channel* ch = findChannelById(pkt.channel_id);
-    if (!ch) {
-        WARN("Forwarding unknown channel packet...");
-        DBG(line);
-        return;
-    }
-
-    // Ensure sender exists
-    if (!findUserById(pkt.sender_id)) {
-        User* u = new User(pkt.sender_id, pkt.sender_id);
-        all_users.push_back(u);
-        PreferencesHandler::saveUsers(all_users);
-    }
-
-    // Avoid duplicates
-    for (Message* m : ch->channel_messages) {
-        if (!m) continue;
-        if (m->message_id == pkt.message_id) return;
-    }
-
-    // Create and register message (minimal fields)
-    Message* msg = new Message(
-        pkt.channel_id,
-        pkt.message_id,
-        pkt.sender_id,
-        pkt.message,
-        pkt.time_stamp
-    );
-
-    ch->addMessage(msg);
-    all_messages.push_back(msg);
-
-    // Echo in unified format
-    String out = "DATA||" +
-                 pkt.channel_id + "||" +
-                 pkt.message_id + "||" +
-                 pkt.sender_id + "||" +
-                 pkt.message;
-    INFO(out);
-
-    // Refresh chat screen if active
-    if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT &&
-        CONTROLLER.target_channel == ch) {
-        TFT_HANDLER.drawChatMessages(ch);
-        TFT_HANDLER.scrollToBottom(ch);
     }
 }
 

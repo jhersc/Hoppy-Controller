@@ -110,7 +110,8 @@ void TFTHandler::drawMessagesHeader() {
     
     // Display current date and time in the top right corner (full redraw)
     drawHeaderTime();
-    updateMessagesHeaderTime();
+    // updateMessagesHeaderTime();
+    lastTimeUpdate = millis();
 }
 
 void TFTHandler::drawHeaderTime() {
@@ -307,6 +308,10 @@ void TFTHandler::draw_ChatScreen(String _channel_id, String& _text_draft, byte m
     if (!_channel) return;
 
     if (mode == CHAT_FULL) {
+        if (mode == CHAT_FULL) {
+            chatScrollOffset = 0;
+        }
+
         tft.fillScreen(TFT_BLACK);
         tft.fillRect(0, 0, 320, 30, TFT_BLUE);
         tft.setTextColor(TFT_WHITE, TFT_BLUE);
@@ -341,59 +346,86 @@ void TFTHandler::drawChatMessages(Channel* channel) {
 
     for (Message* msg : channel->channel_messages) {
         if (!msg) continue;
+
+        User* sender = findUserById(msg->sender_id);
+        bool isOwnMessage = (sender && sender->id == local_user->id);
+
+        // ---------- ON-SCREEN DRAW ----------
         if (y + lineHeight > topY && y < bottomY) {
-            User* sender = findUserById(msg->sender_id);
-            bool isOwnMessage = (sender && sender->ID == local_user->ID);
-            
+
             if (isOwnMessage) {
-                // Display our own message: "You: message"
-                String line = "You: " + msg->message;
+                // ----- Own message -----
+                String line = "You:" + msg->content;
+                if (line.length() > 40)
+                    line = "You:" + line.substring(0, 37) + "...";
+
                 tft.drawString(line, 5, y, 2);
                 y += lineHeight;
-                
-                // Display latency only if available
-                if (msg->latency_set) {
-                    String latencyInfo = "  [Latency: " + String(msg->latency) + "ms]";
-                    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                    tft.drawString(latencyInfo, 5, y, 1);
-                    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                    y += lineHeight;
-                }
-            } else {
-                // Display neighbor's message
-                String senderName = sender ? sender->username : msg->sender_id;
-                String line = senderName + ": " + msg->message;
-                tft.drawString(line, 5, y, 2);
-                y += lineHeight;
-                
-                // Display timestamp
+
+                // Timestamp
                 tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-                String timestampStr = "  [" + msg->time_stamp + "]";
-                tft.drawString(timestampStr, 5, y, 1);
+                tft.drawString("  [" + msg->date_and_time + "]", 5, y, 1);
                 tft.setTextColor(TFT_WHITE, TFT_BLACK);
                 y += lineHeight;
-                
-                // Display signal quality (RSSI, SNR, Latency) if available
+
+                // Latency (optional)
                 if (msg->latency_set) {
-                    String signalInfo = "  [RSSI:" + String(msg->rssi) + " SNR:" + String(msg->snr) + " Lat:" + String(msg->latency) + "ms]";
                     tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                    tft.drawString(signalInfo, 5, y, 1);
+                    tft.drawString(
+                        "  [Latency: " + String(msg->latency) + "ms]",
+                        5, y, 1
+                    );
                     tft.setTextColor(TFT_WHITE, TFT_BLACK);
                     y += lineHeight;
                 }
-            }
-        } else {
-            // Message is off-screen, but still need to advance y by its height
-            User* sender = findUserById(msg->sender_id);
-            bool isOwnMessage = (sender && sender->ID == local_user->ID);
-            
-            if (isOwnMessage) {
+
+            } else {
+                // ----- Neighbor message -----
+                String senderName = sender ? sender->username : msg->sender_id;
+                String line = senderName + ": " + msg->content;
+                if (line.length() > 40)
+                    line = senderName + ": " + line.substring(0, 37) + "...";
+
+                tft.drawString(line, 5, y, 2);
                 y += lineHeight;
+
+                // Timestamp
+                tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+                tft.drawString("  [" + msg->date_and_time + "]", 5, y, 1);
+                tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                y += lineHeight;
+
+                // RSSI / SNR / Latency
+                tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+                if (msg->latency_set) {
+                    tft.drawString(
+                        "  [RSSI:" + String(msg->rssi) +
+                        " SNR:" + String(msg->snr) +
+                        " Lat:" + String(msg->latency) + "ms]",
+                        5, y, 1
+                    );
+                } else {
+                    tft.drawString(
+                        "  [RSSI:" + String(msg->rssi) +
+                        " SNR:" + String(msg->snr) + "]",
+                        5, y, 1
+                    );
+                }
+                tft.setTextColor(TFT_WHITE, TFT_BLACK);
+                y += lineHeight;
+            }
+
+        }
+        // ---------- OFF-SCREEN ADVANCE ----------
+        else {
+            if (isOwnMessage) {
+                y += lineHeight; // message
+                y += lineHeight; // timestamp
                 if (msg->latency_set) y += lineHeight;
             } else {
-                y += lineHeight;  // message
-                y += lineHeight;  // timestamp
-                if (msg->latency_set) y += lineHeight;
+                y += lineHeight; // message
+                y += lineHeight; // timestamp
+                y += lineHeight; // RSSI/SNR (always one line)
             }
         }
     }
@@ -409,15 +441,19 @@ int TFTHandler::calculateTotalMessagesHeight(Channel* channel) {
         if (!msg) continue;
         
         User* sender = findUserById(msg->sender_id);
-        bool isOwnMessage = (sender && sender->ID == local_user->ID);
+        bool isOwnMessage = (sender && sender->id == local_user->id);
         
         if (isOwnMessage) {
             // Own message: 1 line for message
-            totalHeight += lineHeight;
+            // totalHeight += lineHeight;
+            totalHeight += lineHeight; // message
+            totalHeight += lineHeight; // timestamp
+            if (msg->latency_set) totalHeight += lineHeight;
+
             // + 1 line for latency if available
-            if (msg->latency_set) {
-                totalHeight += lineHeight;
-            }
+            // if (msg->latency_set) {
+            //     totalHeight += lineHeight;
+            // }
         } else {
             // Neighbor's message: 1 line for message
             totalHeight += lineHeight;

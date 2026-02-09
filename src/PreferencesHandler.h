@@ -86,7 +86,7 @@ static void saveChannels(const std::vector<Channel*>& channels) {
     String serialized = "";
     for (auto* ch : channels) {
         if (!ch) continue;
-        serialized += ch->ID + "," + ch->name + "," + String(ch->channel_type) + ";";
+        serialized += ch->id + "," + ch->name + "," + String(ch->channel_type) + ";";
     }
     setString("channels", serialized);
 }
@@ -121,7 +121,7 @@ static void saveUsers(const std::vector<User*>& users) {
     String serialized = "";
     for (auto* u : users) {
         if (!u) continue;
-        serialized += u->ID + "," + u->username + ";";
+        serialized += u->id + "," + u->username + ";";
     }
     setString("users", serialized);
 }

@@ -191,7 +191,7 @@ void KeypadHandler::handle_MessagesScreen(char key) {
             instance->target_channel = ch;
             instance->alpha = true;
             instance->MeshCrafted_TFT->set_CurrentScreen(SCREEN_CHAT);
-            instance->MeshCrafted_TFT->draw_ChatScreen(ch->ID, instance->text_input, CHAT_FULL);
+            instance->MeshCrafted_TFT->draw_ChatScreen(ch->id, instance->text_input, CHAT_FULL);
             return;
         }
     }
@@ -268,11 +268,16 @@ void KeypadHandler::handle_ChatScreen(char key) {
         String msg_id = generateMessageId();
         String ts = getTime();
         Message* newMsg = new Message(
-            instance->target_channel->ID,
+            ts,
             msg_id,
-            local_user->ID,
+            local_user->id,
+            instance->target_channel->id,
+            local_user->username,
+            instance->target_channel->name,
             instance->text_input,
-            ts
+            0,
+            0.0,
+            0.0
         );
 
         instance->target_channel->addMessage(newMsg);
@@ -295,18 +300,30 @@ void KeypadHandler::handle_ChatScreen(char key) {
     instance->MeshCrafted_TFT->drawChatDraft(instance->text_input);
 }
 
-// ============================================================
-// Format outgoing message — NEW FORMAT (8 fields)
-// channel_id || message_id || sender_id || message || time_stamp
-// ============================================================
+/**
+ * ============================================================
+ * @name formatOutgoingMessage
+ * @brief Format a Message struct into an outgoing message string.
+ * @param msg Pointer to the Message struct to format.
+ * @return Formatted outgoing message string: 
+ * `msg||date_and_time||message_id||sender_id||channel_id||
+ * sender_name||channel_name||content||rssi||snr||latency`
+ * ============================================================
+ */
 String KeypadHandler::formatOutgoingMessage(Message* msg) {
     if (!msg || !local_user) return "";
     String packet =
-        msg->channel_id + "||" +
-        msg->message_id + "||" +
-        msg->sender_id +  "||" +
-        msg->message + "||" +
-        msg->time_stamp;
+        "msg||" +
+        msg->date_and_time  + "||" +
+        msg->message_id     + "||" +
+        msg->sender_id      + "||" +
+        msg->channel_id     + "||" +
+        msg->sender_name    +  "||" +
+        msg->channel_name   + "||" +
+        msg->content        + "||" +
+        msg->rssi           + "||" +
+        msg->snr            + "||" +
+        msg->latency_set ? String(msg->latency) : "0";
 
     return packet;
 }
