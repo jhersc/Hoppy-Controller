@@ -181,13 +181,13 @@ extern std::vector<Message*> all_messages;
  * @param key message ID
  * @param value message time stamp
  */
-std::map <String, String> sentMessages;
+extern std::map <String, String> sentMessages;
 /**
  * @brief (key, value)
  * @param key message ID
  * @param value message time stamp
  */
-std::map <String, String> seenMessages;
+extern std::map <String, String> seenMessages;
 
 // Current local user
 extern User* local_user;

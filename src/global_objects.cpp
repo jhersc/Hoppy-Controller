@@ -12,6 +12,9 @@ String text_draft = "";
 std::vector<User*> all_users;
 std::vector<Channel*> all_channels;
 std::vector<Message*> all_messages;
+std::map <String, String> seenMessages;
+std::map <String, String> sentMessages;
+
 User* local_user = nullptr;
 
 // ===== Helper functions =====
@@ -56,7 +59,7 @@ String generateMessageId() {
     sprintf(buf, "%lX", millis());
     String head = String(buf);
     // random tail (4 hex digits)
-    int tail = random(0, 0x10000); // 0 .. 0xFFFF
+    int tail = random(0, 0x9000); // 0 .. 0xFFFF
     char tailBuf[8];
     sprintf(tailBuf, "%X", tail);
     String tailStr = String(tailBuf);
@@ -77,7 +80,7 @@ void RTC_setup() {
     if (! rtc.begin()) {
         Serial.println("Couldn't find RTC");
         Serial.flush();
-        while (1) delay(10);
+        while (1) delay(9);
     }
     // If you want to set the RTC to the date & time this sketch was compiled, uncomment this line
     // rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
@@ -94,17 +97,18 @@ void RTC_setup() {
 }
 
 void parseRawPacket(const String &raw, Packet &pkt) {
+    DBG("PARSING PACKET");
     pkt.valid = false;
     pkt.latency = 0;
     pkt.receive_count = 0;
-        /**
+    /**
      * msg||date_and_time||message_id||sender_id||
      * channel_id||sender_name||channel_name||content||rssi||snr||latency
      *  */ 
     String parts[9];
     int index = 0;
     String r = raw;
-    while (r.length() > 0 && index < 8) {
+    while (r.length() > 0 && index < 9) {
         int sepIndex = r.indexOf("||");
         if (sepIndex == -1) {
             parts[index++] = r;
@@ -163,3 +167,6 @@ bool recentlySent(const String &msgId) {
     if (sentMessages.count(msgId)) return true;
     return false;
 }
+
+
+

@@ -7,7 +7,7 @@
 
 
 // PROGRAM FLOW
-// serial data -> serial read ->
+// serial data -> serial read -> 
 
 // ================== CORE HANDLERS ==================
 TFTHandler TFT_HANDLER;
@@ -155,23 +155,23 @@ void listenSerialMessages() {
     }
 
     if (line.startsWith("ack||")) {
-        String messageId = line.substring(5);
-        markAsSeen(messageId);
+        line = line.substring(5);
         Packet pkt;
         parseRawPacket(line, pkt);
-        if (!pkt.valid) return;
 
+        if (!pkt.valid) return;
+        markAsSeen(pkt.message_id);
         // Get the message object
-        Message* msg = findMessageById(messageId);
+        Message* msg = findMessageById(pkt.message_id);
         if (!msg) {
-            WARN("Received ACK for unknown message ID: " + messageId);
+            WARN("Received ACK for unknown message ID: " + pkt.message_id);
             return;
         }
         INFO("FOUND MESSAGE OBJECT:" + msg->channel_id);
         // Update latency if provided
-        if (pkt.latency > 0) {
+        if (pkt.latency  > 0) {
             if(updateMessageLatency(*msg, pkt.rssi, pkt.snr, pkt.latency)) {
-                INFO("ACK latency updated for message ID: " + messageId);
+                INFO("ACK latency updated for message ID: " + pkt.message_id);
                 // Refresh chat screen if active
                 // find message and its channel to redraw
                 INFO("LATENCY UPDATED!");
@@ -190,7 +190,19 @@ void listenSerialMessages() {
                 }
             }
         }
-
+            // Echo in unified format
+        String out = "msg||" +
+                pkt.date_and_time + "||" +
+                pkt.message_id + "||" +
+                pkt.sender_id + "||" +
+                pkt.channel_id + "||" +
+                pkt.sender_name + "||" +
+                pkt.channel_name + "||" +
+                pkt.content + "||" +
+                pkt.rssi + "||" +
+                pkt.snr + "||" +
+                pkt.latency;
+        INFO(out);
         return;
     }
 }

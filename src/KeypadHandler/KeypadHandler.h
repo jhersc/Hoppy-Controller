@@ -40,7 +40,7 @@ public:
     Channel* target_channel = nullptr;
 
     // Helper to format outgoing message as string including timestamp
-    static String formatOutgoingMessage(Message* msg);
+    static void formatOutgoingMessage(Message* msg, String& out);
 
 private:
     // TFT handler pointer

@@ -148,7 +148,7 @@ void KeypadHandler::handle_StartScreen(char key) {
         instance->MeshCrafted_TFT->set_CurrentScreen(SCREEN_SETTINGS);
         instance->MeshCrafted_TFT->draw_SettingsScreen();
     }
-}
+} 
 
 void KeypadHandler::handle_MessagesScreen(char key) {
     if (keypad_state != RELEASED) return;
@@ -284,7 +284,8 @@ void KeypadHandler::handle_ChatScreen(char key) {
         all_messages.push_back(newMsg);
 
         // Build outgoing packet
-        String packet = KeypadHandler::formatOutgoingMessage(newMsg);
+        String packet;
+        formatOutgoingMessage(newMsg, packet);
         Serial.println(packet);
 
         instance->text_input = "";
@@ -310,22 +311,19 @@ void KeypadHandler::handle_ChatScreen(char key) {
  * sender_name||channel_name||content||rssi||snr||latency`
  * ============================================================
  */
-String KeypadHandler::formatOutgoingMessage(Message* msg) {
-    if (!msg || !local_user) return "";
-    String packet =
-        "msg||" +
-        msg->date_and_time  + "||" +
-        msg->message_id     + "||" +
-        msg->sender_id      + "||" +
-        msg->channel_id     + "||" +
-        msg->sender_name    +  "||" +
-        msg->channel_name   + "||" +
-        msg->content        + "||" +
-        msg->rssi           + "||" +
-        msg->snr            + "||" +
-        msg->latency_set ? String(msg->latency) : "0";
-
-    return packet;
+void KeypadHandler::formatOutgoingMessage(Message* msg, String& out) {
+    out.reserve(256);  // pre-allocate buffer
+    out = "msg||";
+    out += msg->date_and_time  + "||";
+    out += msg->message_id     + "||";
+    out += msg->sender_id      + "||";
+    out += msg->channel_id     + "||";
+    out += msg->sender_name    + "||";
+    out += msg->channel_name   + "||";
+    out += msg->content        + "||";
+    out += String(msg->rssi)   + "||";
+    out += String(msg->snr)    + "||";
+    out += (msg->latency_set ? String(msg->latency) : "0");
 }
 
 void KeypadHandler::drawModeIndicator() {
