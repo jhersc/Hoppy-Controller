@@ -176,6 +176,8 @@ struct Channel {
 extern std::vector<User*> all_users;
 extern std::vector<Channel*> all_channels;
 extern std::vector<Message*> all_messages;
+extern std::vector<String>sent_messages_order;
+extern std::vector<String>seen_messages_order;
 /**
  * @brief (key, value)
  * @param key message ID

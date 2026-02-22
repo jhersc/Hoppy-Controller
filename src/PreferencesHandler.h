@@ -86,9 +86,83 @@ static void saveChannels(const std::vector<Channel*>& channels) {
     String serialized = "";
     for (auto* ch : channels) {
         if (!ch) continue;
-        serialized += ch->id + "," + ch->name + "," + String(ch->channel_type) + ";";
+        serialized += "("+ch->id + "||" + ch->name + "||" + String(ch->channel_type) + ")";
+        String messages = "{}";
+        for (auto message : ch->channel_messages) {
+            messages += "{" + 
+            message->date_and_time + "||" +
+            message->message_id + "||" +
+            message->sender_id + "||" +
+            message->channel_id + "||" +
+            message->sender_name + "||" +
+            message->channel_name + "||" +
+            message->content + "||" +
+            message->rssi + "||" +
+            message->snr + "||" +
+            message->latency + "}";
+        }
     }
     setString("channels", serialized);
+}
+
+void parseSavedChannels(const String &raw, std::vector<Channel*> &channels) {
+    int pos = 0;
+    while (pos < raw.length()) {
+        int startCh = raw.indexOf('(', pos);
+        int endCh   = raw.indexOf(')', startCh);
+        if (startCh == -1 || endCh == -1) break;
+
+        String chData = raw.substring(startCh + 1, endCh); // channel_id||name||type
+        int sep1 = chData.indexOf("||");
+        int sep2 = chData.indexOf("||", sep1 + 2);
+
+        if (sep1 == -1 || sep2 == -1) {
+            pos = endCh + 1; // skip malformed channel
+            continue;
+        }
+
+        Channel* ch = new Channel();
+        ch->id   = chData.substring(0, sep1);
+        ch->name = chData.substring(sep1 + 2, sep2);
+        ch->channel_type = chData.substring(sep2 + 2).toInt();
+
+        // Parse messages for this channel
+        int msgPos = endCh + 1;
+        while (msgPos < raw.length()) {
+            int startMsg = raw.indexOf('{', msgPos);
+            int endMsg   = raw.indexOf('}', startMsg);
+
+            // Stop if no more messages or next channel starts
+            if (startMsg == -1 || endMsg == -1 || startMsg > raw.indexOf('(', msgPos)) break;
+
+            String msgRaw = raw.substring(startMsg + 1, endMsg);
+
+            Packet pkt;
+            parseRawPacket(msgRaw, pkt);
+
+            if (pkt.valid) {
+                Message* m = new Message(
+                            pkt.date_and_time,
+                            pkt.message_id,
+                            pkt.sender_id,
+                            pkt.channel_id,
+                            pkt.sender_name,
+                            pkt.channel_name,
+                            pkt.content,
+                            pkt.rssi,
+                            pkt.snr,
+                            pkt.latency
+                );
+
+                ch->channel_messages.push_back(m);
+            }
+
+            msgPos = endMsg + 1;
+        }
+
+        channels.push_back(ch);
+        pos = endCh + 1;
+    }
 }
 
 // Load channels from NVS and rebuild them into memory

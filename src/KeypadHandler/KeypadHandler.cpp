@@ -291,9 +291,8 @@ void KeypadHandler::handle_ChatScreen(char key) {
         instance->text_input = "";
         text_draft = "";
 
-        instance->MeshCrafted_TFT->scrollToBottom(instance->target_channel);
+        instance->MeshCrafted_TFT->scrollChatDown(instance->target_channel);
         instance->MeshCrafted_TFT->drawChatMessages(instance->target_channel);
-        instance->MeshCrafted_TFT->drawChatDraft(instance->text_input);
         return;
     }
 

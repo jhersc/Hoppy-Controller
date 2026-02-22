@@ -95,13 +95,14 @@ void listenSerialMessages() {
     
     
     if (line.startsWith("msg||")) {
+        DBG("MSG");
         line = line.substring(5);
 
         // Parse message fields
         Packet pkt;
         parseRawPacket(line, pkt);
         if (!pkt.valid) return;
-        
+        DBG("Parsed packet: " + pkt.content);
         // Check if channel exists, if not create it (handles new channels on the fly)
         Channel* ch = findChannelById(pkt.channel_id);
         if (!ch) {
@@ -130,22 +131,25 @@ void listenSerialMessages() {
             pkt.snr,
             pkt.latency
         );
+        DBG("Created message object: " + msg->content);
         ch->addMessage(msg);
         all_messages.push_back(msg);
-        
+        DBG("Added message to channel " + ch->name + ": " + msg->content);
             // Echo in unified format
         String out = "msg||" +
                 pkt.date_and_time + "||" +
-                pkt.message_id + "||" +
-                pkt.sender_id + "||" +
-                pkt.channel_id + "||" +
-                pkt.sender_name + "||" +
-                pkt.channel_name + "||" +
-                pkt.content + "||" +
-                pkt.rssi + "||" +
-                pkt.snr + "||" +
+                pkt.message_id    + "||" +
+                pkt.sender_id     + "||" +
+                pkt.channel_id    + "||" +
+                pkt.sender_name   + "||" +
+                pkt.channel_name  + "||" +
+                pkt.content       + "||" +
+                pkt.rssi          + "||" +
+                pkt.snr           + "||" +
                 pkt.latency;
         INFO(out);
+        DBG("Echoed message in unified format");
+        Serial.println(out);
         // Refresh chat screen if active
         if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT &&
             CONTROLLER.target_channel == ch) {
@@ -154,7 +158,8 @@ void listenSerialMessages() {
         }
     }
 
-    if (line.startsWith("ack||")) {
+    else if (line.startsWith("ack||")) {
+        DBG("ACK");
         line = line.substring(5);
         Packet pkt;
         parseRawPacket(line, pkt);
@@ -183,6 +188,7 @@ void listenSerialMessages() {
                         // redraw chat if currently viewing that channel
                         if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT && CONTROLLER.target_channel == ch) {
                             INFO("REDRAWING");
+                            TFT_HANDLER.scrollChatDown(ch);
                             TFT_HANDLER.drawChatMessages(ch);
                             INFO("REDRAWN");
                         }
@@ -191,7 +197,7 @@ void listenSerialMessages() {
             }
         }
             // Echo in unified format
-        String out = "msg||" +
+        String out = "ack||" +
                 pkt.date_and_time + "||" +
                 pkt.message_id + "||" +
                 pkt.sender_id + "||" +

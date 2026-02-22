@@ -48,7 +48,7 @@ void TFTHandler::draw_MessagesScreen() {
     const int visibleHeight = totalHeight - (headerHeight + footerHeight + 2 * marginY); // = 180
 
     // Row geometry
-    const int rowHeight = 30;  // includes padding + content
+    const int rowHeight = 30;  // includes paddingAA:2D:90:37:5E:2D + content
     const int contentH  = 24;
     const int paddingY  = (rowHeight - contentH) / 2;
 
@@ -329,6 +329,7 @@ void TFTHandler::draw_ChatScreen(String _channel_id, String& _text_draft, byte m
     } else if (mode == CHAT_MESSAGES) {
         tft.fillRect(0, 35, 320, 170, TFT_BLACK);
         drawChatMessages(_channel);
+        drawChatDraft(_text_draft);
     } else if (mode == CHAT_DRAFT) {
         drawChatDraft(_text_draft);
     }
@@ -353,80 +354,45 @@ void TFTHandler::drawChatMessages(Channel* channel) {
         // ---------- ON-SCREEN DRAW ----------
         if (y + lineHeight > topY && y < bottomY) {
 
-            if (isOwnMessage) {
-                // ----- Own message -----
-                String line = "You:" + msg->content;
-                if (line.length() > 40)
-                    line = "You:" + line.substring(0, 37) + "...";
+            String senderName = sender ? sender->username : msg->sender_id;
+            String line = (isOwnMessage ? "You" : senderName) + ": " + msg->content;
+            if (line.length() > 40)
+                line = senderName + ": " + line.substring(0, 37) + "...";
 
-                tft.drawString(line, 5, y, 2);
-                y += lineHeight;
+            tft.drawString(line, 5, y, 2);
+            
+            // height = 20
 
-                // Timestamp
-                tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-                tft.drawString("  [" + msg->date_and_time + "]", 5, y, 1);
-                tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                y += lineHeight;
+            y += lineHeight;
 
-                // Latency (optional)
-                if (msg->latency_set) {
-                    tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                    tft.drawString(
-                        "  [Latency: " + String(msg->latency) + "ms]",
-                        5, y, 1
-                    );
-                    tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                    y += lineHeight;
-                }
+            // Timestamp
+            tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+            tft.drawString("  [" + msg->date_and_time + "]", 5, y, 1);
+            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+            y += lineHeight;
 
-            } else {
-                // ----- Neighbor message -----
-                String senderName = sender ? sender->username : msg->sender_id;
-                String line = senderName + ": " + msg->content;
-                if (line.length() > 40)
-                    line = senderName + ": " + line.substring(0, 37) + "...";
-
-                tft.drawString(line, 5, y, 2);
-                y += lineHeight;
-
-                // Timestamp
-                tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-                tft.drawString("  [" + msg->date_and_time + "]", 5, y, 1);
-                tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                y += lineHeight;
-
-                // RSSI / SNR / Latency
-                tft.setTextColor(TFT_YELLOW, TFT_BLACK);
-                if (msg->latency_set) {
-                    tft.drawString(
-                        "  [RSSI:" + String(msg->rssi) +
-                        " SNR:" + String(msg->snr) +
-                        " Lat:" + String(msg->latency) + "ms]",
-                        5, y, 1
-                    );
-                } else {
-                    tft.drawString(
-                        "  [RSSI:" + String(msg->rssi) +
-                        " SNR:" + String(msg->snr) + "]",
-                        5, y, 1
-                    );
-                }
-                tft.setTextColor(TFT_WHITE, TFT_BLACK);
-                y += lineHeight;
-            }
+            // RSSI / SNR / Latency
+            tft.setTextColor(TFT_YELLOW, TFT_BLACK);
+            
+            tft.drawString(
+                "  [RSSI:" + (msg->rssi ? String(msg->rssi) : "N/A") +
+                " SNR:" + (msg->snr ?String(msg->snr) : "N/A") +
+                " Lat:" + (msg->latency ? String(msg->latency) : "N/A") + (msg->latency ? "ms]": ""),
+                5, y, 1
+            );
+            
+            tft.setTextColor(TFT_WHITE, TFT_BLACK);
+            y += lineHeight;
+            
 
         }
         // ---------- OFF-SCREEN ADVANCE ----------
         else {
-            if (isOwnMessage) {
-                y += lineHeight; // message
-                y += lineHeight; // timestamp
-                if (msg->latency_set) y += lineHeight;
-            } else {
-                y += lineHeight; // message
-                y += lineHeight; // timestamp
-                y += lineHeight; // RSSI/SNR (always one line)
-            }
+            
+            y += lineHeight; // message
+            y += lineHeight; // timestamp
+            y += lineHeight; // RSSI/SNR (always one line)
+        
         }
     }
 }
@@ -448,37 +414,36 @@ int TFTHandler::calculateTotalMessagesHeight(Channel* channel) {
             // totalHeight += lineHeight;
             totalHeight += lineHeight; // message
             totalHeight += lineHeight; // timestamp
-            if (msg->latency_set) totalHeight += lineHeight;
+            totalHeight += lineHeight; // rssi, snr, and latency
+            // if (msg->latency_set) totalHeight += lineHeight;
 
             // + 1 line for latency if available
             // if (msg->latency_set) {
             //     totalHeight += lineHeight;
             // }
-        } else {
-            // Neighbor's message: 1 line for message
-            totalHeight += lineHeight;
-            // + 1 line for timestamp
-            totalHeight += lineHeight;
-            // + 1 line for signal quality if available
-            if (msg->latency_set) {
-                totalHeight += lineHeight;
-            }
-        }
+        } 
     }
     return totalHeight;
 }
 
 void TFTHandler::scrollChatUp() {
-    chatScrollOffset -= 20;
+    chatScrollOffset -= 20*3;
     if (chatScrollOffset < 0) chatScrollOffset = 0;
 }
 
 void TFTHandler::scrollChatDown(Channel* channel) {
-    const int visibleHeight = 200 - 40;  // bottomY - topY
-    int totalHeight = calculateTotalMessagesHeight(channel);
+
+    const int messageHeight = 60;      // 3 * 20
+    const int visibleMessages = 3;
+    const int visibleHeight = messageHeight * visibleMessages;
+
+    int totalHeight = channel->_message_count * messageHeight;
     int maxOffset = max(totalHeight - visibleHeight, 0);
-    chatScrollOffset += 20;
-    if (chatScrollOffset > maxOffset) chatScrollOffset = maxOffset;
+
+    chatScrollOffset += messageHeight;
+
+    if (chatScrollOffset > maxOffset)
+        chatScrollOffset = maxOffset;
 }
 
 void TFTHandler::scrollToBottom(Channel* channel) {

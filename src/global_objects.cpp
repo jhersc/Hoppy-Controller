@@ -12,6 +12,8 @@ String text_draft = "";
 std::vector<User*> all_users;
 std::vector<Channel*> all_channels;
 std::vector<Message*> all_messages;
+std::vector<String> sent_messages_order;
+std::vector<String> seen_messages_order;
 std::map <String, String> seenMessages;
 std::map <String, String> sentMessages;
 
@@ -105,10 +107,10 @@ void parseRawPacket(const String &raw, Packet &pkt) {
      * msg||date_and_time||message_id||sender_id||
      * channel_id||sender_name||channel_name||content||rssi||snr||latency
      *  */ 
-    String parts[9];
+    String parts[10];
     int index = 0;
     String r = raw;
-    while (r.length() > 0 && index < 9) {
+    while (r.length() > 0 && index < 10) {
         int sepIndex = r.indexOf("||");
         if (sepIndex == -1) {
             parts[index++] = r;
@@ -154,11 +156,24 @@ void packetToPrefs(Packet &pkt, PrefsPacket &ppkt) {
     ppkt.valid         = true;
 }
 void markAsSeen(const String &msgId) {
+    if (seen_messages_order.size() >= 50) {
+        String oldest = seen_messages_order.front();
+        sentMessages.erase(oldest);
+        seenMessages.erase(oldest);
+        seen_messages_order.erase(seen_messages_order.begin());
+    }
     seenMessages[msgId] = millis();
 }
 
 void markAsSent(const String &msgId) {
-    sentMessages[msgId] = millis();
+    if (sent_messages_order.size() >= 50) {
+        String oldest = sent_messages_order.front();
+        sentMessages.erase(oldest);
+        seenMessages.erase(oldest);
+        sent_messages_order.erase(sent_messages_order.begin());
+    }
+    sentMessages[msgId] = String(millis());
+    sent_messages_order.push_back(msgId);
 }
 bool alreadySeen(const String &msgId) {
     return seenMessages.count(msgId) > 0;
