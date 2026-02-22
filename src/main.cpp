@@ -21,7 +21,10 @@ void restorePersistentData() {
 
     // Restore users and channels
     PreferencesHandler::loadUsers(all_users);
-    PreferencesHandler::loadChannels(all_channels);
+    String rawChannels = PreferencesHandler::getString("channels", "");
+    PreferencesHandler::parseSavedChannels(rawChannels, all_channels);
+    PreferencesHandler::loadSentMessages();
+    PreferencesHandler::loadSeenMessages();
 
     // Restore username
     String uname = PreferencesHandler::getUsername("Guest");
@@ -42,6 +45,7 @@ void resetPreferences() {
     PreferencesHandler::begin();
     restorePersistentData();
 }
+
 
 // ================== SETUP ==================
 void setup() {
@@ -75,6 +79,8 @@ void setup() {
 
     DBG("System initialized. Ready for communication.");
     Serial.println("READY");
+    delay(500);
+    Serial.println(local_user->id);
 }
 
 // ================== SERIAL LISTENER ==================
@@ -132,8 +138,10 @@ void listenSerialMessages() {
             pkt.latency
         );
         DBG("Created message object: " + msg->content);
-        ch->addMessage(msg);
+        ch->addMessage(msg, true);
         all_messages.push_back(msg);
+        PreferencesHandler::saveChannels(all_channels);
+        PreferencesHandler::saveUsers(all_users);
         DBG("Added message to channel " + ch->name + ": " + msg->content);
             // Echo in unified format
         String out = "msg||" +
@@ -153,8 +161,8 @@ void listenSerialMessages() {
         // Refresh chat screen if active
         if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT &&
             CONTROLLER.target_channel == ch) {
+            TFT_HANDLER.scrollChatDown(ch);
             TFT_HANDLER.drawChatMessages(ch);
-            TFT_HANDLER.scrollToBottom(ch);
         }
     }
 
@@ -183,7 +191,9 @@ void listenSerialMessages() {
                 
                 if (msg) {
                     Channel* ch = findChannelById(msg->channel_id);
+                    
                     if (ch) {
+                        ch->addMessage(msg, true);
                         INFO("FOUND CHANNEL OBJECT: " + ch->id);
                         // redraw chat if currently viewing that channel
                         if (TFT_HANDLER.get_currentScreen() == SCREEN_CHAT && CONTROLLER.target_channel == ch) {
@@ -209,6 +219,8 @@ void listenSerialMessages() {
                 pkt.snr + "||" +
                 pkt.latency;
         INFO(out);
+        Serial.println(out);
+        PreferencesHandler::saveChannels(all_channels);
         return;
     }
 }

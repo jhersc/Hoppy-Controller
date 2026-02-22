@@ -105,7 +105,7 @@ static void saveChannels(const std::vector<Channel*>& channels) {
     setString("channels", serialized);
 }
 
-void parseSavedChannels(const String &raw, std::vector<Channel*> &channels) {
+static void parseSavedChannels(const String &raw, std::vector<Channel*> &channels) {
     int pos = 0;
     while (pos < raw.length()) {
         int startCh = raw.indexOf('(', pos);
@@ -153,7 +153,7 @@ void parseSavedChannels(const String &raw, std::vector<Channel*> &channels) {
                             pkt.snr,
                             pkt.latency
                 );
-
+                all_messages.push_back(m);
                 ch->channel_messages.push_back(m);
             }
 
@@ -162,31 +162,6 @@ void parseSavedChannels(const String &raw, std::vector<Channel*> &channels) {
 
         channels.push_back(ch);
         pos = endCh + 1;
-    }
-}
-
-// Load channels from NVS and rebuild them into memory
-static void loadChannels(std::vector<Channel*>& channels) {
-    channels.clear();
-    String data = getString("channels", "");
-    if (data.isEmpty()) return;
-
-    int start = 0;
-    while (true) {
-        int end = data.indexOf(';', start);
-        if (end == -1) break;
-        String entry = data.substring(start, end);
-        start = end + 1;
-
-        int c1 = entry.indexOf(',');
-        int c2 = entry.indexOf(',', c1 + 1);
-        if (c1 == -1 || c2 == -1) continue;
-
-        String id = entry.substring(0, c1);
-        String name = entry.substring(c1 + 1, c2);
-        byte type = entry.substring(c2 + 1).toInt();
-
-        channels.push_back(new Channel(type, name, id));
     }
 }
 
@@ -223,6 +198,62 @@ static void loadUsers(std::vector<User*>& users) {
     }
 }
 
+static void saveSentMessages() {
+    String serialized = "";
+    for (const auto& [msgId, timestamp] : sentMessages) {
+        serialized += msgId + "||" + timestamp + ";";
+    }
+    setString("sent_messages", serialized);
+}
+static void saveSeenMessages() {
+    String serialized = "";
+    for (const auto& [msgId, timestamp] : seenMessages) {
+        serialized += msgId + "||" + timestamp + ";";
+    }
+    setString("seen_messages", serialized);
+}
+
+static void loadSentMessages() {
+    sentMessages.clear(); // start fresh
+    String data = getString("sent_messages", "");
+    if (data.isEmpty()) return;
+
+    int start = 0;
+    while (start < data.length()) {
+        int sepIndex = data.indexOf("||", start);
+        int endIndex = data.indexOf(";", start);
+
+        if (sepIndex == -1 || endIndex == -1) break;
+
+        String msgId = data.substring(start, sepIndex);
+        String timestamp = data.substring(sepIndex + 2, endIndex);
+
+        sentMessages[msgId] = timestamp;
+
+        start = endIndex + 1; // move to next entry
+    }
+}
+
+static void loadSeenMessages() {
+    seenMessages.clear(); // start fresh
+    String data = getString("seen_messages", "");
+    if (data.isEmpty()) return;
+
+    int start = 0;
+    while (start < data.length()) {
+        int sepIndex = data.indexOf("||", start);
+        int endIndex = data.indexOf(";", start);
+
+        if (sepIndex == -1 || endIndex == -1) break;
+
+        String msgId = data.substring(start, sepIndex);
+        String timestamp = data.substring(sepIndex + 2, endIndex);
+
+        seenMessages[msgId] = timestamp;
+
+        start = endIndex + 1; // move to next entry
+    }
+}
 };
 
 #endif // PREFERENCES_HANDLER_H

@@ -377,7 +377,7 @@ void TFTHandler::drawChatMessages(Channel* channel) {
             tft.drawString(
                 "  [RSSI:" + (msg->rssi ? String(msg->rssi) : "N/A") +
                 " SNR:" + (msg->snr ?String(msg->snr) : "N/A") +
-                " Lat:" + (msg->latency ? String(msg->latency) : "N/A") + (msg->latency ? "ms]": ""),
+            (isOwnMessage ? " Lat:" + (msg->latency ? String(msg->latency) : "N/A") + (msg->latency ? "ms]": "]") : "]"),
                 5, y, 1
             );
             

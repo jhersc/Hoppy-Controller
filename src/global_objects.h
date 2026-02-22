@@ -164,8 +164,17 @@ struct Channel {
         : channel_type(type), name(n), id(id), _message_count(0) {}
 
     // Add a message pointer to this channel and increment message count
-    void addMessage(Message* msg) {
+    void addMessage(Message* msg, bool ack=false) {
         if (!msg) return;
+        if (ack) {
+        for (auto it = channel_messages.begin(); it != channel_messages.end(); ++it) {
+            if ((*it)->message_id == msg->message_id) {   // match by identity
+                delete *it;               // delete old message
+                *it = msg;                // replace with new one
+                return;
+            }
+        }
+        }
         channel_messages.push_back(msg);
         _message_count++;
     }
