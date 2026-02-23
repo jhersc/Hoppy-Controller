@@ -15,25 +15,20 @@ KeypadHandler CONTROLLER(&TFT_HANDLER);
 
 
 
-// ================== PERSISTENCE ==================
 void restorePersistentData() {
     PreferencesHandler::begin();
 
-    // Restore users and channels
-    PreferencesHandler::loadUsers(all_users);
-    String rawChannels = PreferencesHandler::getString("channels", "");
-    PreferencesHandler::parseSavedChannels(rawChannels, all_channels);
-    PreferencesHandler::loadSentMessages();
-    PreferencesHandler::loadSeenMessages();
+    // Restore full JSON state (users, channels, messages, sent/seen, local user)
+    PreferencesHandler::loadAllState();
 
-    // Restore username
-    String uname = PreferencesHandler::getUsername("Guest");
+    // Ensure a local user exists
     if (!local_user) {
+        String uname = PreferencesHandler::getUsername("Guest");
         local_user = new User(uname, uname);
         all_users.push_back(local_user);
     }
 
-    INFO("Restored users and channels from NVS");
+    INFO("Restored users, channels, and messages from NVS");
 }
 
 void resetPreferences() {
@@ -46,34 +41,35 @@ void resetPreferences() {
     restorePersistentData();
 }
 
-
-// ================== SETUP ==================
 void setup() {
     Serial.begin(115200);
-    while (!Serial){}
+    while (!Serial) {} // Wait for Serial
     RTC_setup();
-    Serial.println("RESET"); // Request reset of connected MCUs
+
+    Serial.println("RESET");
+
     PreferencesHandler::begin();
+
+    // Restore all persistent data
     restorePersistentData();
 
-    String savedName = PreferencesHandler::getUsername("");
-    if (savedName == "") {
-        savedName = "Guest";
-        PreferencesHandler::setUsername(savedName);
+    // Ensure username is set in preferences
+    if (local_user) {
+        String uname = local_user->username;
+        if (PreferencesHandler::getUsername("") == "") {
+            PreferencesHandler::setUsername(uname);
+        }
     }
 
-    // Default local user
-    local_user = new User(savedName, savedName);
-    all_users.push_back(local_user);
     text_draft = local_user->username;
 
-    // Default broadcast channel (ensure exists only once)
+    // Ensure default broadcast channel exists
     if (!findChannelById("123123")) {
         Channel* broadcast = new Channel(CHAT_GROUP, "Broadcast", "123123");
         all_channels.push_back(broadcast);
     }
 
-    // Initialize display and keypad
+    // Initialize display and keypad controllers
     TFT_HANDLER.begin();
     CONTROLLER.begin();
 
@@ -81,9 +77,7 @@ void setup() {
     Serial.println("READY");
     delay(500);
     Serial.println(local_user->id);
-    // resetPreferences();
 }
-
 // ================== SERIAL LISTENER ==================
 void listenSerialMessages() {
     if (!Serial.available()) return;
@@ -123,7 +117,7 @@ void listenSerialMessages() {
         if (!sender) {
             sender = new User(pkt.sender_id, pkt.sender_name);
             all_users.push_back(sender);
-            PreferencesHandler::saveUsers(all_users);
+            PreferencesHandler::saveAllState();
         }
         // Create message and add to channel
         Message* msg = new Message(
@@ -141,8 +135,7 @@ void listenSerialMessages() {
         DBG("Created message object: " + msg->content);
         ch->addMessage(msg, true);
         all_messages.push_back(msg);
-        PreferencesHandler::saveChannels(all_channels);
-        PreferencesHandler::saveUsers(all_users);
+        PreferencesHandler::saveAllState();
         DBG("Added message to channel " + ch->name + ": " + msg->content);
             // Echo in unified format
         String out = "msg||" +
@@ -221,7 +214,7 @@ void listenSerialMessages() {
                 pkt.latency;
         INFO(out);
         Serial.println(out);
-        PreferencesHandler::saveChannels(all_channels);
+        PreferencesHandler::saveAllState();
         return;
     }
 }
