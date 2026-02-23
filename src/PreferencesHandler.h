@@ -7,6 +7,7 @@
 #include <Preferences.h>
 #include "global_objects.h"
 #include "DebugMacros.h"
+#include <ArduinoJson.h>
 
 
 // ================== PreferencesHandler ===================
@@ -83,89 +84,116 @@ public:
 
 // Save all channels to NVS (compact JSON-style format)
 static void saveChannels(const std::vector<Channel*>& channels) {
-    String serialized = "";
+
+    JsonDocument doc;
+
+    JsonArray channelsArray = doc["channels"].to<JsonArray>();
+
     for (auto* ch : channels) {
         if (!ch) continue;
-        serialized += "("+ch->id + "||" + ch->name + "||" + String(ch->channel_type) + ")";
-        String messages = "{}";
-        for (auto message : ch->channel_messages) {
-            messages += "{" + 
-            message->date_and_time + "||" +
-            message->message_id + "||" +
-            message->sender_id + "||" +
-            message->channel_id + "||" +
-            message->sender_name + "||" +
-            message->channel_name + "||" +
-            message->content + "||" +
-            message->rssi + "||" +
-            message->snr + "||" +
-            message->latency + "}";
+
+        JsonObject chObj = channelsArray.add<JsonObject>();
+        chObj["id"]   = ch->id;
+        chObj["name"] = ch->name;
+        chObj["type"] = ch->channel_type;
+
+        JsonArray msgArray = chObj["messages"].to<JsonArray>();
+
+        for (auto* message : ch->channel_messages) {
+            if (!message) continue;
+
+            JsonObject msgObj = msgArray.add<JsonObject>();
+
+            msgObj["date"]         = message->date_and_time;
+            msgObj["message_id"]   = message->message_id;
+            msgObj["sender_id"]    = message->sender_id;
+            msgObj["channel_id"]   = message->channel_id;
+            msgObj["sender_name"]  = message->sender_name;
+            msgObj["channel_name"] = message->channel_name;
+            msgObj["content"]      = message->content;
+            msgObj["rssi"]         = message->rssi;
+            msgObj["snr"]          = message->snr;
+            msgObj["latency"]      = message->latency;
         }
     }
-    setString("channels", serialized);
+
+    String output;
+    serializeJson(doc, output);
+
+    size_t written = prefs.putString("channels", output);
+
+    if (written == 0) {
+        WARN("NVS write failed! JSON may exceed 4KB limit.");
+    } else {
+        DBG("Channels saved successfully. Size: " + String(written) + " bytes");
+    }
 }
 
-static void parseSavedChannels(const String &raw, std::vector<Channel*> &channels) {
-    int pos = 0;
-    while (pos < raw.length()) {
-        int startCh = raw.indexOf('(', pos);
-        int endCh   = raw.indexOf(')', startCh);
-        if (startCh == -1 || endCh == -1) break;
+static void parseSavedChannels(const String &raw,
+                               std::vector<Channel*> &channels) {
 
-        String chData = raw.substring(startCh + 1, endCh); // channel_id||name||type
-        int sep1 = chData.indexOf("||");
-        int sep2 = chData.indexOf("||", sep1 + 2);
+    channels.clear();
+    all_messages.clear();
 
-        if (sep1 == -1 || sep2 == -1) {
-            pos = endCh + 1; // skip malformed channel
-            continue;
-        }
+    if (raw.isEmpty()) {
+        DBG("No saved channels found.");
+        return;
+    }
+
+    JsonDocument doc;
+
+    DeserializationError error = deserializeJson(doc, raw);
+    if (error) {
+        WARN("Failed to parse JSON channels.");
+        return;
+    }
+
+    JsonArray channelsArray = doc["channels"].as<JsonArray>();
+    if (channelsArray.isNull()) {
+        WARN("Channels array missing or invalid.");
+        return;
+    }
+
+    for (JsonObject chObj : channelsArray) {
 
         Channel* ch = new Channel();
-        ch->id   = chData.substring(0, sep1);
-        ch->name = chData.substring(sep1 + 2, sep2);
-        ch->channel_type = chData.substring(sep2 + 2).toInt();
 
-        // Parse messages for this channel
-        int msgPos = endCh + 1;
-        while (msgPos < raw.length()) {
-            int startMsg = raw.indexOf('{', msgPos);
-            int endMsg   = raw.indexOf('}', startMsg);
+        ch->id           = chObj["id"]   | "";
+        ch->name         = chObj["name"] | "";
+        ch->channel_type = chObj["type"] | 0;
 
-            // Stop if no more messages or next channel starts
-            if (startMsg == -1 || endMsg == -1 || startMsg > raw.indexOf('(', msgPos)) break;
+        JsonArray msgArray = chObj["messages"].as<JsonArray>();
 
-            String msgRaw = raw.substring(startMsg + 1, endMsg);
+        if (!msgArray.isNull()) {
 
-            Packet pkt;
-            parseRawPacket(msgRaw, pkt);
+            for (JsonObject msgObj : msgArray) {
 
-            if (pkt.valid) {
                 Message* m = new Message(
-                            pkt.date_and_time,
-                            pkt.message_id,
-                            pkt.sender_id,
-                            pkt.channel_id,
-                            pkt.sender_name,
-                            pkt.channel_name,
-                            pkt.content,
-                            pkt.rssi,
-                            pkt.snr,
-                            pkt.latency
+                    msgObj["date"]         | "",
+                    msgObj["message_id"]   | "",
+                    msgObj["sender_id"]    | "",
+                    msgObj["channel_id"]   | "",
+                    msgObj["sender_name"]  | "",
+                    msgObj["channel_name"] | "",
+                    msgObj["content"]      | "",
+                    msgObj["rssi"]         | 0,
+                    msgObj["snr"]          | 0.0f,
+                    msgObj["latency"]      | 0.0f
                 );
+
                 all_messages.push_back(m);
                 ch->channel_messages.push_back(m);
             }
-
-            msgPos = endMsg + 1;
         }
 
         channels.push_back(ch);
-        pos = endCh + 1;
     }
+
+    DBG("Loaded channels: " + String(channels.size()));
+    DBG("Loaded messages: " + String(all_messages.size()));
 }
 
-// Save all users to NVS
+
 static void saveUsers(const std::vector<User*>& users) {
     String serialized = "";
     for (auto* u : users) {

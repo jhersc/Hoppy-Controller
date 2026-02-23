@@ -282,6 +282,8 @@ void KeypadHandler::handle_ChatScreen(char key) {
 
         instance->target_channel->addMessage(newMsg);
         all_messages.push_back(newMsg);
+        PreferencesHandler::saveSentMessages();
+        PreferencesHandler::saveChannels(all_channels);
 
         // Build outgoing packet
         String packet;

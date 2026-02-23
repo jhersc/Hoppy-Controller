@@ -81,6 +81,7 @@ void setup() {
     Serial.println("READY");
     delay(500);
     Serial.println(local_user->id);
+    // resetPreferences();
 }
 
 // ================== SERIAL LISTENER ==================
