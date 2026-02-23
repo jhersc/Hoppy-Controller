@@ -5,7 +5,7 @@ Preferences PreferencesHandler::prefs;
 
 // =================== SAVE COMPLETE STATE =====================
 void PreferencesHandler::saveAllState() {
-    JsonDocument doc; // adjust if you expect huge history
+    JsonDocument doc; // adjust size as needed
 
     doc["version"] = 1;
 
@@ -37,7 +37,10 @@ void PreferencesHandler::saveAllState() {
         chObj["type"] = ch->channel_type;
 
         JsonArray msgArr = chObj["messages"].to<JsonArray>();
-        for (auto* m : ch->channel_messages) {
+        // Save only up to _message_count messages
+        size_t count = std::min(ch->_message_count, (unsigned int)ch->channel_messages.size());
+        for (size_t i = 0; i < count; i++) {
+            Message* m = ch->channel_messages[i];
             if (!m) continue;
             JsonObject msgObj = msgArr.add<JsonObject>();
             msgObj["date"] = m->date_and_time;
@@ -76,7 +79,6 @@ void PreferencesHandler::saveAllState() {
     if (written == 0) WARN("STATE SAVE FAILED (NVS overflow?)");
     else DBG("State saved: " + String(written) + " bytes");
 }
-
 // =================== LOAD COMPLETE STATE =====================
 void PreferencesHandler::loadAllState() {
     String raw = prefs.getString("mesh_state", "");
@@ -139,8 +141,11 @@ void PreferencesHandler::loadAllState() {
                 msgObj["latency"] | 0.0f
             );
 
+            // Add message to global list
             all_messages.push_back(m);
-            ch->channel_messages.push_back(m);
+
+            // Add message to channel using addMessage() to update _message_count
+            ch->addMessage(m);
         }
 
         all_channels.push_back(ch);
